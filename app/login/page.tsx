@@ -140,13 +140,22 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label
-                  className="block text-sm font-medium mb-1"
-                  htmlFor="password"
-                  style={{ color: "#374151" }}
-                >
-                  Contraseña
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label
+                    className="block text-sm font-medium"
+                    htmlFor="password"
+                    style={{ color: "#374151" }}
+                  >
+                    Contraseña
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs hover:underline"
+                    style={{ color: "#6b7280" }}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
                 <input
                   id="password"
                   type="password"
