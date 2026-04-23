@@ -52,7 +52,7 @@ export interface Transaction {
   category: string;
   client_id: string | null;
   date: string;
-  created_by: string | null;
+  created_by: string;
   created_at: string;
 }
 

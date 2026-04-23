@@ -18,6 +18,7 @@ interface InventoryManagerProps {
   initialProducts: Product[];
   role: Role;
   barbershopId: string;
+  userId: string;
 }
 
 const emptyForm = {
@@ -43,6 +44,7 @@ export default function InventoryManager({
   initialProducts,
   role,
   barbershopId,
+  userId,
 }: InventoryManagerProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [search, setSearch] = useState("");
@@ -146,7 +148,7 @@ export default function InventoryManager({
       category: "Ventas",
       client_id: null,
       date: new Date().toISOString().split("T")[0],
-      created_by: null,
+      created_by: userId,
     };
 
     const { createClient } = await import("@/lib/supabase/client");

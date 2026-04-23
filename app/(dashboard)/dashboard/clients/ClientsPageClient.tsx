@@ -10,6 +10,7 @@ export default function ClientsPageClient() {
   const [clients, setClients] = useState<Client[]>([]);
   const [role, setRole] = useState<Role>("admin");
   const [barbershopId, setBarbershopId] = useState("");
+  const [userId, setUserId] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function ClientsPageClient() {
       const resolvedId = viewMode.mode === "store" ? viewMode.storeId : defaultId;
       setRole(profile.role);
       setBarbershopId(resolvedId);
+      setUserId(user.id);
       const { data } = await supabase
         .from("clients")
         .select("*")
@@ -56,6 +58,7 @@ export default function ClientsPageClient() {
       initialClients={clients}
       role={role}
       barbershopId={barbershopId}
+      userId={userId}
     />
   );
 }

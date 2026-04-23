@@ -35,6 +35,8 @@ export default function SettingsPageClient() {
   const [showBarberoModal, setShowBarberoModal] = useState(false);
   const [shopForm, setShopForm] = useState({ name: "", location: "" });
   const [barberoEmail, setBarberoEmail] = useState("");
+  const [barberoShopId, setBarberoShopId] = useState("");
+  const [inviteResult, setInviteResult] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -102,10 +104,29 @@ export default function SettingsPageClient() {
     setBarbershops((prev) => prev.filter((s) => s.id !== shopId));
   }
 
-  function handleInvite() {
-    alert("Funcionalidad de invitación requiere configuración de Supabase Auth.");
-    setShowBarberoModal(false);
-    setBarberoEmail("");
+  async function handleInvite() {
+    if (!barberoEmail || !barberoShopId) return;
+    setSaving(true);
+    setInviteResult(null);
+    try {
+      const res = await fetch("/api/invite-barbero", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: barberoEmail, barbershopId: barberoShopId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setInviteResult({ type: "error", msg: json.error ?? "Error al enviar invitación" });
+      } else {
+        setInviteResult({ type: "success", msg: `Invitación enviada a ${barberoEmail}. El barbero recibirá un email para crear su contraseña.` });
+        setBarberoEmail("");
+        setBarberoShopId("");
+      }
+    } catch {
+      setInviteResult({ type: "error", msg: "Error de red. Intenta de nuevo." });
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleEnterStore(shop: Barbershop) {
@@ -324,40 +345,74 @@ export default function SettingsPageClient() {
 
       {/* Invite modal */}
       {showBarberoModal && (
-        <div className="modal-overlay" onClick={() => setShowBarberoModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowBarberoModal(false); setInviteResult(null); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
               <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>Invitar barbero</h2>
-              <button onClick={() => setShowBarberoModal(false)} className="btn-ghost" style={{ padding: "0.25rem 0.5rem", border: "none" }}>
+              <button onClick={() => { setShowBarberoModal(false); setInviteResult(null); }} className="btn-ghost" style={{ padding: "0.25rem 0.5rem", border: "none" }}>
                 <X size={16} />
               </button>
             </div>
             <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "1rem" }}>
-              El barbero recibirá un correo para crear su cuenta con acceso limitado.
+              El barbero recibirá un email para crear su contraseña. Solo tendrá acceso al local que asignes — sin acceso admin.
             </p>
-            <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.375rem" }}>
-                Correo del barbero *
-              </label>
-              <input
-                type="email"
-                placeholder="barbero@email.com"
-                value={barberoEmail}
-                onChange={(e) => setBarberoEmail(e.target.value)}
-              />
+
+            {inviteResult && (
+              <div
+                style={{
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "0.5rem",
+                  fontSize: "0.825rem",
+                  marginBottom: "1rem",
+                  background: inviteResult.type === "success" ? "#dcfce7" : "#fee2e2",
+                  color: inviteResult.type === "success" ? "#166534" : "#991b1b",
+                  border: `1px solid ${inviteResult.type === "success" ? "#bbf7d0" : "#fecaca"}`,
+                }}
+              >
+                {inviteResult.msg}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.375rem" }}>
+                  Correo del barbero *
+                </label>
+                <input
+                  type="email"
+                  placeholder="barbero@email.com"
+                  value={barberoEmail}
+                  onChange={(e) => setBarberoEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.375rem" }}>
+                  Asignar al local *
+                </label>
+                <select
+                  value={barberoShopId}
+                  onChange={(e) => setBarberoShopId(e.target.value)}
+                >
+                  <option value="">Seleccionar local...</option>
+                  {barbershops.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.25rem" }}>
-              <button onClick={() => setShowBarberoModal(false)} className="btn-ghost" style={{ flex: 1, justifyContent: "center" }}>
+              <button onClick={() => { setShowBarberoModal(false); setInviteResult(null); }} className="btn-ghost" style={{ flex: 1, justifyContent: "center" }}>
                 Cancelar
               </button>
               <button
                 onClick={handleInvite}
-                disabled={!barberoEmail}
+                disabled={saving || !barberoEmail || !barberoShopId}
                 className="btn-primary"
                 style={{ flex: 1, justifyContent: "center" }}
               >
                 <Mail size={15} />
-                Enviar invitación
+                {saving ? "Enviando..." : "Enviar invitación"}
               </button>
             </div>
           </div>

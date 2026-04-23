@@ -49,24 +49,30 @@ const QUICK_BUTTONS: QuickButtonConfig[] = [
   { label: "Gasto", icon: TrendingDown, defaultAmount: 0, type: "expense", category: "Otro" },
 ];
 
-type PeriodFilter = "today" | "week" | "month";
+type PeriodFilter = "today" | "week" | "month" | "custom";
 
-function getPeriodRange(period: PeriodFilter): { start: string; end: string } {
+function getPeriodRange(
+  period: PeriodFilter,
+  customStart: string,
+  customEnd: string
+): { start: string; end: string } {
   const now = new Date();
-  const end = now.toISOString().split("T")[0];
-  if (period === "today") {
-    return { start: end, end };
-  }
+  const today = now.toISOString().split("T")[0];
+  if (period === "today") return { start: today, end: today };
   if (period === "week") {
     const start = new Date(now);
     start.setDate(now.getDate() - 6);
-    return { start: start.toISOString().split("T")[0], end };
+    return { start: start.toISOString().split("T")[0], end: today };
   }
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  return { start: start.toISOString().split("T")[0], end };
+  if (period === "month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { start: start.toISOString().split("T")[0], end: today };
+  }
+  // custom
+  return { start: customStart, end: customEnd };
 }
 
-function exportToExcel(transactions: Transaction[], period: string) {
+function exportToExcel(transactions: Transaction[], start: string, end: string) {
   const data = transactions.map((t) => ({
     Fecha: t.date,
     Tipo: t.type === "income" ? "Ingreso" : "Gasto",
@@ -75,10 +81,17 @@ function exportToExcel(transactions: Transaction[], period: string) {
     Monto: t.type === "income" ? t.amount : -t.amount,
   }));
 
+  // Totals summary row
+  const totalIncome = transactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const totalExpense = transactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  data.push({ Fecha: "", Tipo: "", Descripción: "--- TOTAL INGRESOS ---", Categoría: "", Monto: totalIncome });
+  data.push({ Fecha: "", Tipo: "", Descripción: "--- TOTAL GASTOS ---", Categoría: "", Monto: -totalExpense });
+  data.push({ Fecha: "", Tipo: "", Descripción: "--- NETO ---", Categoría: "", Monto: totalIncome - totalExpense });
+
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Transacciones");
-  XLSX.writeFile(wb, `finanzas-${period}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(wb, `finanzas-${start}-al-${end}.xlsx`);
 }
 
 export default function FinancesManager({
@@ -87,15 +100,18 @@ export default function FinancesManager({
   barbershopId,
   userId,
 }: FinancesManagerProps) {
+  const todayStr = new Date().toISOString().split("T")[0];
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [period, setPeriod] = useState<PeriodFilter>("today");
+  const [customStart, setCustomStart] = useState(todayStr);
+  const [customEnd, setCustomEnd] = useState(todayStr);
   const [quickModal, setQuickModal] = useState<QuickModalState | null>(null);
   const [quickAmount, setQuickAmount] = useState("");
   const [quickClientId, setQuickClientId] = useState("");
   const [quickNote, setQuickNote] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const { start, end } = getPeriodRange(period);
+  const { start, end } = getPeriodRange(period, customStart, customEnd);
 
   const periodTransactions = transactions.filter((t) => t.date >= start && t.date <= end);
 
@@ -164,6 +180,7 @@ export default function FinancesManager({
     today: "Hoy",
     week: "Esta semana",
     month: "Este mes",
+    custom: "Rango",
   };
 
   return (
@@ -234,8 +251,8 @@ export default function FinancesManager({
       </div>
 
       {/* Sección B: Filtros de período + Exportar */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", alignItems: "center", flexWrap: "wrap" }}>
-        {(["today", "week", "month"] as PeriodFilter[]).map((p) => (
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+        {(["today", "week", "month", "custom"] as PeriodFilter[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
@@ -256,7 +273,7 @@ export default function FinancesManager({
           </button>
         ))}
         <button
-          onClick={() => exportToExcel(periodTransactions, period)}
+          onClick={() => exportToExcel(periodTransactions, start, end)}
           style={{
             marginLeft: "auto",
             display: "flex",
@@ -275,6 +292,43 @@ export default function FinancesManager({
           <Download size={14} /> Exportar Excel
         </button>
       </div>
+
+      {/* Date range pickers — visible solo cuando period === "custom" */}
+      {period === "custom" && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginBottom: "1rem",
+            background: "#f9fafb",
+            border: "1px solid #e5e7eb",
+            borderRadius: "0.5rem",
+            padding: "0.5rem 0.75rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151" }}>Desde:</span>
+          <input
+            type="date"
+            value={customStart}
+            max={customEnd}
+            onChange={(e) => setCustomStart(e.target.value)}
+            style={{ fontSize: "0.8rem", padding: "0.25rem 0.5rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", background: "#fff" }}
+          />
+          <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151" }}>Hasta:</span>
+          <input
+            type="date"
+            value={customEnd}
+            min={customStart}
+            onChange={(e) => setCustomEnd(e.target.value)}
+            style={{ fontSize: "0.8rem", padding: "0.25rem 0.5rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", background: "#fff" }}
+          />
+          <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+            {periodTransactions.length} transacciones
+          </span>
+        </div>
+      )}
 
       {/* Resumen */}
       <div

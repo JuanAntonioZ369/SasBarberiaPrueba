@@ -10,6 +10,7 @@ export default function InventoryPageClient() {
   const [products, setProducts] = useState<Product[]>([]);
   const [role, setRole] = useState<Role>("admin");
   const [barbershopId, setBarbershopId] = useState("");
+  const [userId, setUserId] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function InventoryPageClient() {
       const resolvedId = viewMode.mode === "store" ? viewMode.storeId : defaultId;
       setRole(profile.role);
       setBarbershopId(resolvedId);
+      setUserId(user.id);
       const { data } = await supabase
         .from("products")
         .select("*")
@@ -55,6 +57,7 @@ export default function InventoryPageClient() {
       initialProducts={products}
       role={role}
       barbershopId={barbershopId}
+      userId={userId}
     />
   );
 }

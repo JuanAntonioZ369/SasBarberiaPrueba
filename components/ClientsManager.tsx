@@ -19,6 +19,7 @@ interface ClientsManagerProps {
   initialClients: Client[];
   role: Role;
   barbershopId: string;
+  userId: string;
 }
 
 const emptyForm = {
@@ -33,6 +34,7 @@ export default function ClientsManager({
   initialClients,
   role,
   barbershopId,
+  userId,
 }: ClientsManagerProps) {
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [search, setSearch] = useState("");
@@ -130,7 +132,7 @@ export default function ClientsManager({
       category: "Servicios",
       client_id: attendanceClient.id,
       date: new Date().toISOString().split("T")[0],
-      created_by: null,
+      created_by: userId,
     };
 
     const { createClient: sbClient } = await import("@/lib/supabase/client");

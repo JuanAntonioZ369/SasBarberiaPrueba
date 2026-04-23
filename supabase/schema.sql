@@ -121,25 +121,43 @@ CREATE INDEX idx_memberships_barbershop     ON memberships(barbershop_id);
 
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  meta_role TEXT;
+  meta_barbershop_id UUID;
 BEGIN
-  -- Crear profile con rol admin por defecto
-  INSERT INTO profiles (id, email, full_name, role, barbershop_id)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    'admin',
-    NULL
-  );
+  meta_role := NEW.raw_user_meta_data->>'role';
 
-  -- Crear su primer barbershop
-  INSERT INTO barbershops (id, owner_id, name, location)
-  VALUES (
-    gen_random_uuid(),
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'barbershop_name', 'Mi Barbería'),
-    NULL
-  );
+  -- Barbero invitado: viene con role='barbero' y barbershop_id en metadata
+  IF meta_role = 'barbero' THEN
+    meta_barbershop_id := (NEW.raw_user_meta_data->>'barbershop_id')::UUID;
+    INSERT INTO profiles (id, email, full_name, role, barbershop_id)
+    VALUES (
+      NEW.id,
+      NEW.email,
+      COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+      'barbero',
+      meta_barbershop_id
+    );
+    -- No se crea barbershop propio para el barbero
+  ELSE
+    -- Registro normal de admin: crear profile + primer barbershop
+    INSERT INTO profiles (id, email, full_name, role, barbershop_id)
+    VALUES (
+      NEW.id,
+      NEW.email,
+      COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+      'admin',
+      NULL
+    );
+
+    INSERT INTO barbershops (id, owner_id, name, location)
+    VALUES (
+      gen_random_uuid(),
+      NEW.id,
+      COALESCE(NEW.raw_user_meta_data->>'barbershop_name', 'Mi Barbería'),
+      NULL
+    );
+  END IF;
 
   RETURN NEW;
 END;
