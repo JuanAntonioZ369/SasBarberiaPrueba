@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Scissors, CreditCard, CheckCircle, ArrowLeft } from "lucide-react";
+import { Scissors, CreditCard, CheckCircle, ArrowLeft, Mail } from "lucide-react";
 import { DEMO_MODE } from "@/lib/demo";
 
-type Step = 1 | 2;
+type Step = 1 | 2 | 3;
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function goToStep2(e: React.FormEvent) {
+  function goToStep2(e: React.SyntheticEvent) {
     e.preventDefault();
     setStep(2);
   }
@@ -38,7 +38,7 @@ export default function RegisterPage() {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signUp({
+      const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -51,6 +51,10 @@ export default function RegisterPage() {
       if (authError) {
         setError(authError.message);
         setLoading(false);
+      } else if (data.session === null) {
+        // Email confirmation required — show step 3
+        setLoading(false);
+        setStep(3);
       } else {
         router.push("/dashboard");
         router.refresh();
@@ -60,6 +64,12 @@ export default function RegisterPage() {
       setLoading(false);
     }
   }
+
+  const subtitles: Record<Step, string> = {
+    1: "Crea tu cuenta gratis",
+    2: "Activa tu plan Pro",
+    3: "Revisa tu correo",
+  };
 
   return (
     <div
@@ -80,34 +90,36 @@ export default function RegisterPage() {
             </span>
           </Link>
           <p className="text-sm" style={{ color: "#6b7280" }}>
-            {step === 1 ? "Crea tu cuenta gratis" : "Activa tu plan Pro"}
+            {subtitles[step]}
           </p>
         </div>
 
-        {/* Steps indicator */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          {[1, 2].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
-                style={{
-                  background: step >= s ? "#0a0a0a" : "#e5e7eb",
-                  color: step >= s ? "#ffffff" : "#9ca3af",
-                }}
-              >
-                {s}
-              </div>
-              {s < 2 && (
+        {/* Steps indicator — only visible on steps 1 and 2 */}
+        {step !== 3 && (
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {[1, 2].map((s) => (
+              <div key={s} className="flex items-center gap-2">
                 <div
-                  className="w-8 h-px transition-colors"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
                   style={{
-                    background: step > s ? "#0a0a0a" : "#e5e7eb",
+                    background: step >= s ? "#0a0a0a" : "#e5e7eb",
+                    color: step >= s ? "#ffffff" : "#9ca3af",
                   }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+                >
+                  {s}
+                </div>
+                {s < 2 && (
+                  <div
+                    className="w-8 h-px transition-colors"
+                    style={{
+                      background: step > s ? "#0a0a0a" : "#e5e7eb",
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div
           className="light-card"
@@ -115,7 +127,7 @@ export default function RegisterPage() {
             boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
           }}
         >
-          {step === 1 ? (
+          {step === 1 && (
             <form onSubmit={goToStep2} className="space-y-4">
               <h2
                 className="font-semibold mb-1"
@@ -204,7 +216,9 @@ export default function RegisterPage() {
                 Continuar →
               </button>
             </form>
-          ) : (
+          )}
+
+          {step === 2 && (
             <div>
               <button
                 onClick={() => setStep(1)}
@@ -305,16 +319,48 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <p className="text-center text-sm mt-5" style={{ color: "#6b7280" }}>
-            ¿Ya tienes cuenta?{" "}
-            <Link
-              href="/login"
-              className="font-medium hover:underline"
-              style={{ color: "#0a0a0a" }}
-            >
-              Iniciar sesión
-            </Link>
-          </p>
+          {step === 3 && (
+            <div className="text-center py-4">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}
+              >
+                <Mail size={26} style={{ color: "#16a34a" }} />
+              </div>
+              <h2 className="font-semibold mb-2" style={{ color: "#0a0a0a" }}>
+                Confirma tu correo
+              </h2>
+              <p className="text-sm mb-1" style={{ color: "#6b7280" }}>
+                Enviamos un enlace de confirmación a:
+              </p>
+              <p className="text-sm font-medium mb-5" style={{ color: "#0a0a0a" }}>
+                {email}
+              </p>
+              <p className="text-sm" style={{ color: "#6b7280" }}>
+                Haz clic en el enlace del correo y luego inicia sesión para acceder a tu barbería.
+              </p>
+              <Link
+                href="/login"
+                className="btn-dark mt-6"
+                style={{ display: "inline-flex", justifyContent: "center", width: "100%", padding: "0.75rem" }}
+              >
+                Ir a iniciar sesión
+              </Link>
+            </div>
+          )}
+
+          {step !== 3 && (
+            <p className="text-center text-sm mt-5" style={{ color: "#6b7280" }}>
+              ¿Ya tienes cuenta?{" "}
+              <Link
+                href="/login"
+                className="font-medium hover:underline"
+                style={{ color: "#0a0a0a" }}
+              >
+                Iniciar sesión
+              </Link>
+            </p>
+          )}
         </div>
       </div>
     </div>
